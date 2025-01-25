@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  elasticsearch:
+    image: docker.io/library/elasticsearch:8.12.2
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - cluster.name=elk-cluster
+      - xpack.security.enabled=false  # Отключение аутентификации
+    ports:
+      - "9200:9200"
+    networks:
+      - elk
+
+  kibana:
+    image: docker.io/library/kibana:8.12.2
+    container_name: kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+    networks:
+      - elk
+
+  logstash:
+    image: docker.io/library/logstash:8.12.2
+    container_name: logstash
+    environment:
+    - ES_HOST=elasticsearch
+    volumes:
+      - ./logstash/logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+    ports:
+      - "5044:5044"
+    depends_on:
+      - elasticsearch
+    networks:
+      - elk
+
+  filebeat:
+    image: docker.io/elastic/filebeat:8.12.2
+    container_name: filebeat
+    volumes:
+      - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml # Конфигурация Filebeat
+      - ./nginx_logs:/var/log/nginx:ro # Логи Nginx
+    networks:
+      - elk
+
+  nginx:
+    image: docker.io/library/nginx:latest
+    container_name: nginx
+    volumes:
+      - ./nginx_logs:/var/log/nginx  # Путь для логов Nginx
+    ports:
+      - "5000:80"
+    networks:
+      - elk
+
+networks:
+  elk:
+    driver: bridge

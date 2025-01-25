@@ -1,0 +1,53 @@
+version: '3.8'
+services:
+  elasticsearch:
+    image: docker.io/library/elasticsearch:8.12.2
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - cluster.name=${CLUSTER_NAME}  # Будет использовать случайный cluster_name из переменной окружения
+      - xpack.security.enabled=false
+    ports:
+      - 9200:9200
+    networks:
+      - elk
+
+  kibana:
+    image: docker.io/library/kibana:8.12.2
+    container_name: kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+    networks:
+      - elk
+
+  logstash:
+    image: docker.io/library/logstash:8.12.2
+    container_name: logstash
+    volumes:
+      - ./logstash/logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+      - ./nginx_logs:/var/log/nginx  # Монтирование папки с логами
+    ports:
+      - 5044:5044
+      - 9600:9600
+    depends_on:
+      - elasticsearch
+    networks:
+      - elk
+
+  nginx:
+    image: docker.io/library/nginx:latest
+    container_name: nginx
+    volumes:
+      - ./nginx_logs:/var/log/nginx  # Логи Nginx
+    ports:
+      - "5000:80"
+    networks:
+      - elk
+
+networks:
+  elk:
+    driver: bridge
